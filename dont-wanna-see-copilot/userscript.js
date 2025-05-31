@@ -32,6 +32,10 @@
       .flash-messages .flash-warn {
           display: none !important;
       }
+
+      .ActionListItem[data-command-name="search-copilot-chat"] {
+          display: none !important;
+      }
   `;
   document.head.appendChild(s);
 
@@ -49,6 +53,8 @@
       document.querySelectorAll('.copilotPreview__container, copilot-dashboard-entrypoint').forEach(c => c.remove());
 
       document.querySelectorAll('react-partial[partial-name="copilot-chat"], react-partial[partial-name="global-copilot-menu"]').forEach(r => r.remove());
+
+      document.querySelectorAll('.ActionListItem[data-command-name="search-copilot-chat"]').forEach(i => i.remove());
 
       const m = document.querySelector('.flash-messages');
       if (m && !m.children.length) m.remove();
