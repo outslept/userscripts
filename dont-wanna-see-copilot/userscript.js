@@ -22,7 +22,14 @@
       }
 
       .copilotPreview__container,
-      copilot-dashboard-entrypoint {
+      copilot-dashboard-entrypoint,
+      .AppHeader-CopilotChat,
+      react-partial[partial-name="copilot-chat"],
+      react-partial[partial-name="global-copilot-menu"] {
+          display: none !important;
+      }
+
+      .flash-messages .flash-warn {
           display: none !important;
       }
   `;
@@ -33,11 +40,15 @@
           if (s.textContent.includes('Development')) s.remove();
       });
 
+      document.querySelectorAll('.AppHeader-CopilotChat').forEach(e => e.remove());
+
       document.querySelectorAll('.flash-messages .flash-warn').forEach(w => {
           if (w.textContent.includes('Copilot')) w.remove();
       });
 
       document.querySelectorAll('.copilotPreview__container, copilot-dashboard-entrypoint').forEach(c => c.remove());
+
+      document.querySelectorAll('react-partial[partial-name="copilot-chat"], react-partial[partial-name="global-copilot-menu"]').forEach(r => r.remove());
 
       const m = document.querySelector('.flash-messages');
       if (m && !m.children.length) m.remove();
