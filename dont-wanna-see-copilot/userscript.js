@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         GitHub No Copilot
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.1
 // @description  Remove Copilot elements from GitHub
 // @author       outslept
 // @match        https://github.com/*
@@ -12,7 +12,6 @@
 (function() {
   'use strict';
 
-  // Wait for full page load
   function waitForPageLoad() {
     return new Promise((resolve) => {
       if (document.readyState === 'complete') {
@@ -25,62 +24,59 @@
     });
   }
 
-  // Initialize script after page is fully loaded
   waitForPageLoad().then(() => {
-    console.log('[Copilot Remover] Page loaded, initializing...');
     initializeCopilotRemover();
   });
 
   function initializeCopilotRemover() {
     const style = document.createElement('style');
     style.textContent = `
-      /* Header Copilot chat and menu - always visible */
       .AppHeader-CopilotChat,
       react-partial[partial-name="copilot-chat"],
       react-partial[partial-name="global-copilot-menu"] {
         display: none !important;
       }
 
-      /* Dashboard Copilot container - only on homepage */
       .copilotPreview__container,
       copilot-dashboard-entrypoint {
         display: none !important;
       }
 
-      /* Home header - only on homepage */
       h2.my-2 {
         display: none !important;
       }
 
-      /* Flash warning messages about Copilot setup */
       .flash-warn:has([href="/settings/copilot"]) {
         display: none !important;
       }
 
-      /* Diff view Ask Copilot buttons - only on PR files pages */
       react-partial[partial-name="copilot-code-chat"],
       [data-testid="copilot-ask-menu"],
       [data-testid="more-copilot-button"] {
         display: none !important;
       }
 
-      /* Menu items with Copilot links - in sidebar */
       a[href="/settings/copilot"] {
         display: none !important;
       }
 
-      /* Command palette Copilot items */
       [data-command-name="search-copilot-chat"] {
         display: none !important;
       }
 
-      /* Search results Copilot section */
       .ActionList-sectionDivider:has(h3:contains("Copilot")) {
+        display: none !important;
+      }
+
+      [data-testid="sidebar-section"]:has(h3:contains("Development")) {
+        display: none !important;
+      }
+
+      [data-testid="open-in-copilot-agent-button"] {
         display: none !important;
       }
     `;
     document.head.appendChild(style);
-    console.log('[Copilot Remover] CSS styles applied');
 
     function isHomePage() {
       return window.location.pathname === '/';
@@ -88,6 +84,10 @@
 
     function isPRFilesPage() {
       return /^\/[^\/]+\/[^\/]+\/pull\/\d+\/files/.test(window.location.pathname);
+    }
+
+    function isIssuePage() {
+      return /^\/[^\/]+\/[^\/]+\/issues\/\d+/.test(window.location.pathname);
     }
 
     function isSidebarOpen() {
@@ -103,21 +103,17 @@
     function removeCopilotElements() {
       let removedCount = 0;
 
-      // Always remove header elements
       document.querySelectorAll('.AppHeader-CopilotChat').forEach(el => {
         el.remove();
         removedCount++;
       });
 
-      // Only on homepage
       if (isHomePage()) {
-        // Remove dashboard Copilot container
         document.querySelectorAll('.copilotPreview__container, copilot-dashboard-entrypoint').forEach(el => {
           el.remove();
           removedCount++;
         });
 
-        // Remove Home header
         document.querySelectorAll('h2.my-2').forEach(header => {
           if (header.textContent.trim() === 'Home') {
             header.remove();
@@ -126,24 +122,34 @@
         });
       }
 
-      // Only on PR files pages
       if (isPRFilesPage()) {
-        // Remove Ask Copilot button containers
         document.querySelectorAll('react-partial[partial-name="copilot-code-chat"]').forEach(el => {
           el.remove();
           removedCount++;
         });
 
-        // Remove diff view Copilot buttons
         document.querySelectorAll('[data-testid="copilot-ask-menu"], [data-testid="more-copilot-button"]').forEach(btn => {
           btn.remove();
           removedCount++;
         });
       }
 
-      // Only when sidebar is open
+      if (isIssuePage()) {
+        document.querySelectorAll('[data-testid="sidebar-section"]').forEach(section => {
+          const title = section.querySelector('h3');
+          if (title && title.textContent.trim() === 'Development') {
+            section.remove();
+            removedCount++;
+          }
+        });
+
+        document.querySelectorAll('[data-testid="open-in-copilot-agent-button"]').forEach(btn => {
+          btn.remove();
+          removedCount++;
+        });
+      }
+
       if (isSidebarOpen()) {
-        // Remove Copilot menu items by checking href
         document.querySelectorAll('a[href="/settings/copilot"]').forEach(link => {
           const listItem = link.closest('li');
           if (listItem) {
@@ -153,9 +159,7 @@
         });
       }
 
-      // Only when search is open
       if (isSearchOpen()) {
-        // Remove Copilot section from search results
         document.querySelectorAll('.ActionList-sectionDivider').forEach(section => {
           const title = section.querySelector('h3');
           if (title && title.textContent.trim() === 'Copilot') {
@@ -165,7 +169,6 @@
         });
       }
 
-      // Always check for flash messages
       document.querySelectorAll('.flash-warn').forEach(flash => {
         if (flash.textContent.includes('GitHub Copilot setup') ||
             flash.querySelector('[href="/settings/copilot"]')) {
@@ -174,37 +177,27 @@
         }
       });
 
-      // Always check for command palette items
       document.querySelectorAll('[data-command-name="search-copilot-chat"]').forEach(item => {
         item.remove();
         removedCount++;
       });
 
-      // Clean up empty flash-messages container
       const flashContainer = document.querySelector('.flash-messages');
       if (flashContainer && !flashContainer.children.length) {
         flashContainer.remove();
         removedCount++;
       }
 
-      if (removedCount > 0) {
-        console.log(`[Copilot Remover] Removed ${removedCount} elements`);
-      }
-
       return removedCount;
     }
 
-    // Initial cleanup after page load
-    console.log('[Copilot Remover] Running initial cleanup');
     removeCopilotElements();
 
     let currentPath = window.location.pathname;
     setInterval(() => {
       if (window.location.pathname !== currentPath) {
         currentPath = window.location.pathname;
-        console.log(`[Copilot Remover] Page navigation detected: ${currentPath}`);
         setTimeout(() => {
-          console.log('[Copilot Remover] Running cleanup after navigation');
           removeCopilotElements();
         }, 1000);
       }
@@ -213,7 +206,5 @@
     setInterval(() => {
       removeCopilotElements();
     }, 5000);
-
-    console.log('[Copilot Remover] Initialization complete');
   }
 })();
