@@ -5,6 +5,7 @@
 // @description  Remove Copilot elements from GitHub
 // @author       outslept
 // @match        https://github.com/*
+// @icon         https://www.google.com/s2/favicons?sz=64&domain=github.com
 // @grant        none
 // ==/UserScript==
 
