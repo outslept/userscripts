@@ -52,6 +52,11 @@
     [data-command-name="search-copilot-chat"] {
       display: none !important;
     }
+
+    /* Search results Copilot section */
+    .ActionList-sectionDivider:has(h3:contains("Copilot")) {
+      display: none !important;
+    }
   `;
   document.head.appendChild(style);
 
@@ -66,6 +71,11 @@
   function isSidebarOpen() {
     const portalRoot = document.getElementById('__primerPortalRoot__');
     return portalRoot && portalRoot.children.length > 0;
+  }
+
+  function isSearchOpen() {
+    const searchDialog = document.getElementById('search-suggestions-dialog');
+    return searchDialog && searchDialog.hasAttribute('open');
   }
 
   function removeCopilotElements() {
@@ -116,6 +126,18 @@
         const listItem = link.closest('li');
         if (listItem) {
           listItem.remove();
+          removedCount++;
+        }
+      });
+    }
+
+    // Only when search is open
+    if (isSearchOpen()) {
+      // Remove Copilot section from search results
+      document.querySelectorAll('.ActionList-sectionDivider').forEach(section => {
+        const title = section.querySelector('h3');
+        if (title && title.textContent.trim() === 'Copilot') {
+          section.remove();
           removedCount++;
         }
       });
