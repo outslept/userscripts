@@ -8,6 +8,7 @@
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=github.com
 // @grant        none
 // @run-at       document-start
+// @run-at       document-start
 // ==/UserScript==
 
 (function() {
@@ -216,6 +217,7 @@
           currentUrl = location.href;
           run();
       }
+  }, 1000);
   }, 1000);
 
 })();
