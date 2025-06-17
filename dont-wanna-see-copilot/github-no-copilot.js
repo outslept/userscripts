@@ -8,7 +8,6 @@
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=github.com
 // @grant        none
 // @run-at       document-start
-// @run-at       document-start
 // ==/UserScript==
 
 (function() {
@@ -16,7 +15,6 @@
 
   const cleanups = [];
   let observer = null;
-  let intervalId = null;
   let initialized = false;
 
   function injectCSS() {
@@ -69,29 +67,22 @@
           observer.disconnect();
           observer = null;
       }
-
-      if (intervalId) {
-          clearInterval(intervalId);
-          intervalId = null;
-      }
   }
 
-  function removeCopilotElements() {
-      [
-          '.AppHeader-CopilotChat',
-          'react-partial[partial-name="copilot-chat"]',
-          'react-partial[partial-name="global-copilot-menu"]',
-          'react-partial[partial-name="copilot-code-chat"]',
-          '.copilotPreview__container',
-          'copilot-dashboard-entrypoint',
-          '[data-testid="copilot-ask-menu"]',
-          '[data-testid="more-copilot-button"]',
-          '[data-testid="open-in-copilot-agent-button"]',
-          '[data-command-name="search-copilot-chat"]'
-      ].forEach(selector => {
-          document.querySelectorAll(selector).forEach(el => el.remove());
-      });
+  function removeBasicElements() {
+      document.querySelectorAll('.AppHeader-CopilotChat').forEach(el => el.remove());
+      document.querySelectorAll('react-partial[partial-name="copilot-chat"]').forEach(el => el.remove());
+      document.querySelectorAll('react-partial[partial-name="global-copilot-menu"]').forEach(el => el.remove());
+      document.querySelectorAll('react-partial[partial-name="copilot-code-chat"]').forEach(el => el.remove());
+      document.querySelectorAll('.copilotPreview__container').forEach(el => el.remove());
+      document.querySelectorAll('copilot-dashboard-entrypoint').forEach(el => el.remove());
+      document.querySelectorAll('[data-testid="copilot-ask-menu"]').forEach(el => el.remove());
+      document.querySelectorAll('[data-testid="more-copilot-button"]').forEach(el => el.remove());
+      document.querySelectorAll('[data-testid="open-in-copilot-agent-button"]').forEach(el => el.remove());
+      document.querySelectorAll('[data-command-name="search-copilot-chat"]').forEach(el => el.remove());
+  }
 
+  function removeHomeHeader() {
       if (window.location.pathname === '/') {
           document.querySelectorAll('h2.my-2').forEach(header => {
               if (header.textContent.trim() === 'Home') {
@@ -99,7 +90,9 @@
               }
           });
       }
+  }
 
+  function removeDevelopmentSection() {
       if (/^\/[^/]+\/[^/]+\/issues\/\d+/.test(window.location.pathname)) {
           document.querySelectorAll('[data-testid="sidebar-section"]').forEach(section => {
               const title = section.querySelector('h3');
@@ -108,7 +101,9 @@
               }
           });
       }
+  }
 
+  function removeSidebarLinks() {
       const portalRoot = document.getElementById('__primerPortalRoot__');
       if (portalRoot && portalRoot.children.length > 0) {
           document.querySelectorAll('a[href="/settings/copilot"]').forEach(link => {
@@ -118,7 +113,9 @@
               }
           });
       }
+  }
 
+  function removeSearchSections() {
       const searchDialog = document.getElementById('search-suggestions-dialog');
       if (searchDialog && searchDialog.hasAttribute('open')) {
           document.querySelectorAll('.ActionList-sectionDivider').forEach(section => {
@@ -128,7 +125,9 @@
               }
           });
       }
+  }
 
+  function removeFlashWarnings() {
       document.querySelectorAll('.flash-warn').forEach(flash => {
           if (flash.textContent.includes('GitHub Copilot setup') ||
               flash.querySelector('[href="/settings/copilot"]')) {
@@ -142,33 +141,19 @@
       }
   }
 
+  function cleanAll() {
+      removeBasicElements();
+      removeHomeHeader();
+      removeDevelopmentSection();
+      removeSidebarLinks();
+      removeSearchSections();
+      removeFlashWarnings();
+  }
+
   function initObserver() {
-      observer = new MutationObserver((mutations) => {
-          let shouldClean = false;
-
-          mutations.forEach(mutation => {
-              if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-                  for (const node of mutation.addedNodes) {
-                      if (node.nodeType === Node.ELEMENT_NODE) {
-                          if (node.matches && (
-                              node.matches('[class*="copilot" i]') ||
-                              node.matches('[data-testid*="copilot" i]') ||
-                              node.querySelector && (
-                                  node.querySelector('[class*="copilot" i]') ||
-                                  node.querySelector('[data-testid*="copilot" i]')
-                              )
-                          )) {
-                              shouldClean = true;
-                              break;
-                          }
-                      }
-                  }
-              }
-          });
-
-          if (shouldClean) {
-              removeCopilotElements();
-          }
+      observer = new MutationObserver(() => {
+          removeBasicElements();
+          removeFlashWarnings();
       });
 
       observer.observe(document.body, {
@@ -177,32 +162,22 @@
       });
 
       cleanups.push(() => {
-          if (observer) {
-              observer.disconnect();
-              observer = null;
-          }
+          observer.disconnect();
+          observer = null;
       });
   }
 
   function run() {
       cleanup();
-      removeCopilotElements();
+      cleanAll();
       initObserver();
   }
 
   function init() {
       if (!initialized) {
           injectCSS();
-
-          document.addEventListener('visibilitychange', () => {
-              if (document.visibilityState === 'visible') {
-                  run();
-              }
-          });
-
           initialized = true;
       }
-
       run();
   }
 
