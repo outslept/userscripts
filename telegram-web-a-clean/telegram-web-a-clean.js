@@ -83,13 +83,7 @@
       cleanNode(document.body);
       initObserver();
   }
-
-  document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-          run();
-      }
-  });
-
+  
   let currentUrl = location.href;
   setInterval(() => {
       if (location.href !== currentUrl) {
