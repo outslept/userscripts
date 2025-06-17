@@ -10,86 +10,87 @@
 (function() {
   'use strict';
 
-  const menuItemsToRemove = [
-    'Boost Channel',
-    'Send a Gift',
-    'Wallet',
-    'My Stories',
-    'Telegram Features',
-    'Report a Bug',
-    'Install App'
-  ];
-
   const cleanups = [];
   let observer = null;
 
   function cleanup() {
-      cleanups.forEach(fn => fn());
-      cleanups.length = 0;
+    cleanups.forEach(fn => fn());
+    cleanups.length = 0;
 
-      if (observer) {
-          observer.disconnect();
-          observer = null;
-      }
+    if (observer) {
+      observer.disconnect();
+      observer = null;
+    }
   }
 
-  function cleanNode(node) {
-      if (!(node instanceof Element)) return;
+  function removeStories() {
+    document.querySelectorAll('#StoryToggler').forEach(el => el.remove());
+  }
 
-      const storyToggler = node.querySelector('#StoryToggler');
-      if (storyToggler) {
-          storyToggler.remove();
+  function removeReactions() {
+    document.querySelectorAll('.Reactions').forEach(el => el.remove());
+  }
+
+  function removeMenuItems() {
+    document.querySelectorAll('.MenuItem, [role="menuitem"]').forEach(item => {
+      const text = item.textContent?.trim();
+      if (text && [
+          'Boost Channel',
+          'Send a Gift',
+          'Wallet',
+          'My Stories',
+          'Telegram Features',
+          'Report a Bug',
+          'Install App'
+        ].includes(text)) {
+        item.remove();
       }
+    });
+  }
 
-      node.querySelectorAll('.Reactions').forEach(el => el.remove());
+  function removeBoostGift() {
+    document.querySelectorAll('[data-testid*="boost"], [data-testid*="gift"]')
+      .forEach(el => el.remove());
+  }
 
-      node.querySelectorAll('.MenuItem, [role="menuitem"]').forEach(item => {
-          const text = item.textContent?.trim();
-          if (text && menuItemsToRemove.includes(text)) {
-              item.remove();
-          }
-      });
-
-      node.querySelectorAll('[data-testid*="boost"], [data-testid*="gift"]')
-          .forEach(el => el.remove());
+  function cleanAll() {
+    removeStories();
+    removeReactions();
+    removeMenuItems();
+    removeBoostGift();
   }
 
   function initObserver() {
-      observer = new MutationObserver((mutations) => {
-          mutations.forEach(mutation => {
-              if (mutation.type === 'childList') {
-                  mutation.addedNodes.forEach(cleanNode);
-              }
-          });
+    observer = new MutationObserver(() => {
+      removeReactions();
+      removeStories();
+      removeMenuItems();
+      removeBoostGift();
+    });
 
-          document.querySelectorAll('.Reactions').forEach(el => el.remove());
-      });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
 
-      observer.observe(document.body, {
-          childList: true,
-          subtree: true
-      });
-
-      cleanups.push(() => {
-          if (observer) {
-              observer.disconnect();
-              observer = null;
-          }
-      });
+    cleanups.push(() => {
+      observer.disconnect();
+      observer = null;
+    });
   }
 
   function run() {
-      cleanup();
-      cleanNode(document.body);
-      initObserver();
+    cleanup();
+    cleanAll();
+    initObserver();
   }
 
   let currentUrl = location.href;
   setInterval(() => {
-      if (location.href !== currentUrl) {
-          currentUrl = location.href;
-          run();
-      }
+    if (location.href !== currentUrl) {
+      currentUrl = location.href;
+      run();
+    }
   }, 500);
 
   run();
