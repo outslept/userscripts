@@ -1,210 +1,221 @@
 // ==UserScript==
 // @name         GitHub No Copilot
 // @namespace    http://tampermonkey.net/
-// @version      1.1
+// @version      1.2
 // @description  Remove Copilot elements from GitHub
 // @author       outslept
 // @match        https://github.com/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=github.com
 // @grant        none
+// @run-at       document-start
 // ==/UserScript==
 
 (function() {
   'use strict';
 
-  function waitForPageLoad() {
-    return new Promise((resolve) => {
-      if (document.readyState === 'complete') {
-        setTimeout(resolve, 1000);
-      } else {
-        window.addEventListener('load', () => {
-          setTimeout(resolve, 1000);
-        });
-      }
-    });
+  const cleanups = [];
+  let observer = null;
+  let intervalId = null;
+  let initialized = false;
+
+  function injectCSS() {
+      const style = document.createElement('style');
+      style.textContent = `
+          .AppHeader-CopilotChat,
+          react-partial[partial-name="copilot-chat"],
+          react-partial[partial-name="global-copilot-menu"],
+          react-partial[partial-name="copilot-code-chat"],
+          .copilotPreview__container,
+          copilot-dashboard-entrypoint,
+          [data-testid="copilot-ask-menu"],
+          [data-testid="more-copilot-button"],
+          [data-testid="open-in-copilot-agent-button"],
+          [data-command-name="search-copilot-chat"],
+          a[href="/settings/copilot"] {
+              display: none !important;
+          }
+
+          .flash-warn:has([href="/settings/copilot"]) {
+              display: none !important;
+          }
+
+          .ActionList-sectionDivider:has(h3:contains("Copilot")) {
+              display: none !important;
+          }
+
+          [data-testid="sidebar-section"]:has(h3:contains("Development")) {
+              display: none !important;
+          }
+
+          .js-homepage h2.my-2 {
+              display: none !important;
+          }
+      `;
+      document.head.appendChild(style);
+
+      cleanups.push(() => {
+          if (style.parentNode) {
+              style.parentNode.removeChild(style);
+          }
+      });
   }
 
-  waitForPageLoad().then(() => {
-    initializeCopilotRemover();
-  });
+  function cleanup() {
+      cleanups.forEach(fn => fn());
+      cleanups.length = 0;
 
-  function initializeCopilotRemover() {
-    const style = document.createElement('style');
-    style.textContent = `
-      .AppHeader-CopilotChat,
-      react-partial[partial-name="copilot-chat"],
-      react-partial[partial-name="global-copilot-menu"] {
-        display: none !important;
+      if (observer) {
+          observer.disconnect();
+          observer = null;
       }
 
-      .copilotPreview__container,
-      copilot-dashboard-entrypoint {
-        display: none !important;
+      if (intervalId) {
+          clearInterval(intervalId);
+          intervalId = null;
       }
+  }
 
-      h2.my-2 {
-        display: none !important;
-      }
-
-      .flash-warn:has([href="/settings/copilot"]) {
-        display: none !important;
-      }
-
-      react-partial[partial-name="copilot-code-chat"],
-      [data-testid="copilot-ask-menu"],
-      [data-testid="more-copilot-button"] {
-        display: none !important;
-      }
-
-      a[href="/settings/copilot"] {
-        display: none !important;
-      }
-
-      [data-command-name="search-copilot-chat"] {
-        display: none !important;
-      }
-
-      .ActionList-sectionDivider:has(h3:contains("Copilot")) {
-        display: none !important;
-      }
-
-      [data-testid="sidebar-section"]:has(h3:contains("Development")) {
-        display: none !important;
-      }
-
-      [data-testid="open-in-copilot-agent-button"] {
-        display: none !important;
-      }
-    `;
-    document.head.appendChild(style);
-
-    function isHomePage() {
-      return window.location.pathname === '/';
-    }
-
-    function isPRFilesPage() {
-      return /^\/[^\/]+\/[^\/]+\/pull\/\d+\/files/.test(window.location.pathname);
-    }
-
-    function isIssuePage() {
-      return /^\/[^\/]+\/[^\/]+\/issues\/\d+/.test(window.location.pathname);
-    }
-
-    function isSidebarOpen() {
-      const portalRoot = document.getElementById('__primerPortalRoot__');
-      return portalRoot && portalRoot.children.length > 0;
-    }
-
-    function isSearchOpen() {
-      const searchDialog = document.getElementById('search-suggestions-dialog');
-      return searchDialog && searchDialog.hasAttribute('open');
-    }
-
-    function removeCopilotElements() {
-      let removedCount = 0;
-
-      document.querySelectorAll('.AppHeader-CopilotChat').forEach(el => {
-        el.remove();
-        removedCount++;
+  function removeCopilotElements() {
+      [
+          '.AppHeader-CopilotChat',
+          'react-partial[partial-name="copilot-chat"]',
+          'react-partial[partial-name="global-copilot-menu"]',
+          'react-partial[partial-name="copilot-code-chat"]',
+          '.copilotPreview__container',
+          'copilot-dashboard-entrypoint',
+          '[data-testid="copilot-ask-menu"]',
+          '[data-testid="more-copilot-button"]',
+          '[data-testid="open-in-copilot-agent-button"]',
+          '[data-command-name="search-copilot-chat"]'
+      ].forEach(selector => {
+          document.querySelectorAll(selector).forEach(el => el.remove());
       });
 
-      if (isHomePage()) {
-        document.querySelectorAll('.copilotPreview__container, copilot-dashboard-entrypoint').forEach(el => {
-          el.remove();
-          removedCount++;
-        });
-
-        document.querySelectorAll('h2.my-2').forEach(header => {
-          if (header.textContent.trim() === 'Home') {
-            header.remove();
-            removedCount++;
-          }
-        });
+      if (window.location.pathname === '/') {
+          document.querySelectorAll('h2.my-2').forEach(header => {
+              if (header.textContent.trim() === 'Home') {
+                  header.remove();
+              }
+          });
       }
 
-      if (isPRFilesPage()) {
-        document.querySelectorAll('react-partial[partial-name="copilot-code-chat"]').forEach(el => {
-          el.remove();
-          removedCount++;
-        });
-
-        document.querySelectorAll('[data-testid="copilot-ask-menu"], [data-testid="more-copilot-button"]').forEach(btn => {
-          btn.remove();
-          removedCount++;
-        });
+      if (/^\/[^/]+\/[^/]+\/issues\/\d+/.test(window.location.pathname)) {
+          document.querySelectorAll('[data-testid="sidebar-section"]').forEach(section => {
+              const title = section.querySelector('h3');
+              if (title && title.textContent.trim() === 'Development') {
+                  section.remove();
+              }
+          });
       }
 
-      if (isIssuePage()) {
-        document.querySelectorAll('[data-testid="sidebar-section"]').forEach(section => {
-          const title = section.querySelector('h3');
-          if (title && title.textContent.trim() === 'Development') {
-            section.remove();
-            removedCount++;
-          }
-        });
-
-        document.querySelectorAll('[data-testid="open-in-copilot-agent-button"]').forEach(btn => {
-          btn.remove();
-          removedCount++;
-        });
+      const portalRoot = document.getElementById('__primerPortalRoot__');
+      if (portalRoot && portalRoot.children.length > 0) {
+          document.querySelectorAll('a[href="/settings/copilot"]').forEach(link => {
+              const listItem = link.closest('li');
+              if (listItem) {
+                  listItem.remove();
+              }
+          });
       }
 
-      if (isSidebarOpen()) {
-        document.querySelectorAll('a[href="/settings/copilot"]').forEach(link => {
-          const listItem = link.closest('li');
-          if (listItem) {
-            listItem.remove();
-            removedCount++;
-          }
-        });
-      }
-
-      if (isSearchOpen()) {
-        document.querySelectorAll('.ActionList-sectionDivider').forEach(section => {
-          const title = section.querySelector('h3');
-          if (title && title.textContent.trim() === 'Copilot') {
-            section.remove();
-            removedCount++;
-          }
-        });
+      const searchDialog = document.getElementById('search-suggestions-dialog');
+      if (searchDialog && searchDialog.hasAttribute('open')) {
+          document.querySelectorAll('.ActionList-sectionDivider').forEach(section => {
+              const title = section.querySelector('h3');
+              if (title && title.textContent.trim() === 'Copilot') {
+                  section.remove();
+              }
+          });
       }
 
       document.querySelectorAll('.flash-warn').forEach(flash => {
-        if (flash.textContent.includes('GitHub Copilot setup') ||
-            flash.querySelector('[href="/settings/copilot"]')) {
-          flash.remove();
-          removedCount++;
-        }
-      });
-
-      document.querySelectorAll('[data-command-name="search-copilot-chat"]').forEach(item => {
-        item.remove();
-        removedCount++;
+          if (flash.textContent.includes('GitHub Copilot setup') ||
+              flash.querySelector('[href="/settings/copilot"]')) {
+              flash.remove();
+          }
       });
 
       const flashContainer = document.querySelector('.flash-messages');
       if (flashContainer && !flashContainer.children.length) {
-        flashContainer.remove();
-        removedCount++;
+          flashContainer.remove();
       }
-
-      return removedCount;
-    }
-
-    removeCopilotElements();
-
-    let currentPath = window.location.pathname;
-    setInterval(() => {
-      if (window.location.pathname !== currentPath) {
-        currentPath = window.location.pathname;
-        setTimeout(() => {
-          removeCopilotElements();
-        }, 1000);
-      }
-    }, 1000);
-
-    setInterval(() => {
-      removeCopilotElements();
-    }, 5000);
   }
+
+  function initObserver() {
+      observer = new MutationObserver((mutations) => {
+          let shouldClean = false;
+
+          mutations.forEach(mutation => {
+              if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                  for (const node of mutation.addedNodes) {
+                      if (node.nodeType === Node.ELEMENT_NODE) {
+                          if (node.matches && (
+                              node.matches('[class*="copilot" i]') ||
+                              node.matches('[data-testid*="copilot" i]') ||
+                              node.querySelector && (
+                                  node.querySelector('[class*="copilot" i]') ||
+                                  node.querySelector('[data-testid*="copilot" i]')
+                              )
+                          )) {
+                              shouldClean = true;
+                              break;
+                          }
+                      }
+                  }
+              }
+          });
+
+          if (shouldClean) {
+              removeCopilotElements();
+          }
+      });
+
+      observer.observe(document.body, {
+          childList: true,
+          subtree: true
+      });
+
+      cleanups.push(() => {
+          if (observer) {
+              observer.disconnect();
+              observer = null;
+          }
+      });
+  }
+
+  function run() {
+      cleanup();
+      removeCopilotElements();
+      initObserver();
+  }
+
+  function init() {
+      if (!initialized) {
+          injectCSS();
+
+          document.addEventListener('visibilitychange', () => {
+              if (document.visibilityState === 'visible') {
+                  run();
+              }
+          });
+
+          initialized = true;
+      }
+
+      run();
+  }
+
+  init();
+
+  document.addEventListener('pjax:end', run);
+  document.addEventListener('turbo:render', run);
+
+  let currentUrl = location.href;
+  setInterval(() => {
+      if (location.href !== currentUrl) {
+          currentUrl = location.href;
+          run();
+      }
+  }, 1000);
+
 })();

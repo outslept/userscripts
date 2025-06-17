@@ -27,5 +27,3 @@ This userscript automatically removes all GitHub Copilot elements from the GitHu
 6. Sidebar
 
 ![](./assets/sidebar.jpg)
-
-**Note:** The script waits for page load and includes small delays to avoid local issues I experienced with UI blocking.
