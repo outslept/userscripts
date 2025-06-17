@@ -10,15 +10,15 @@
 (function() {
   'use strict';
 
-  const menuItemsToRemove = new Set([
-      'Boost Channel',
-      'Send a Gift',
-      'Wallet',
-      'My Stories',
-      'Telegram Features',
-      'Report a Bug',
-      'Install App'
-  ]);
+  const menuItemsToRemove = [
+    'Boost Channel',
+    'Send a Gift',
+    'Wallet',
+    'My Stories',
+    'Telegram Features',
+    'Report a Bug',
+    'Install App'
+  ];
 
   const cleanups = [];
   let observer = null;
@@ -45,7 +45,7 @@
 
       node.querySelectorAll('.MenuItem, [role="menuitem"]').forEach(item => {
           const text = item.textContent?.trim();
-          if (text && menuItemsToRemove.has(text)) {
+          if (text && menuItemsToRemove.includes(text)) {
               item.remove();
           }
       });
@@ -83,7 +83,7 @@
       cleanNode(document.body);
       initObserver();
   }
-  
+
   let currentUrl = location.href;
   setInterval(() => {
       if (location.href !== currentUrl) {
